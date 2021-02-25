@@ -7,7 +7,7 @@ version:             0.1.0.0
 -- description:
 license:             BSD3
 license-file:        LICENSE
-author:              EliseevEgor
+author:              Eliseev Egor
 maintainer:          eliseevegor1920@gmail.com
 -- copyright:
 category:            Game
@@ -28,7 +28,6 @@ executable Jump
                      , gloss >=1.13
                      , gloss-rendering >=1.13
                      , elerea >=2.9 
-                     , random >=1.1
                      , GLUT >=2.7
                      , GLFW-b >= 1.4.7.2
   hs-source-dirs:      src
