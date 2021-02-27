@@ -5,13 +5,19 @@ module Levels where
 
 import Graphics.Gloss.Data.ViewPort
 import Types
+import Control.Monad.Except
 
-getLevel :: Int -> LevelSettings
-getLevel n
-  | n == 1 = level1
-  | n == 2 = level2
-  | n == 3 = level3
-  | otherwise = level1
+
+helpFunction :: Int -> Float -> Type LevelSettings
+helpFunction n score 
+  | n == 1 = return level1
+  | n == 2 = return level2
+  | otherwise = throwError $ WinGame score
+
+getLevel :: Type LevelSettings -> LevelSettings
+getLevel (Right level) = level
+getLevel (Left er) = level3
+
 
 initialViewport :: ViewPort
 initialViewport =
@@ -37,10 +43,10 @@ initialFloor :: (Float, Float) -> Box
 initialFloor (x, y) = Box x y floorWidth floorHeight
 
 level1 :: LevelSettings
-level1 = LevelSettings 20 monstersLevel1 coinsLevel1 boxesLevel1 floorLevel1 flagLevel1 mushroomsLevel1
+level1 = LevelSettings monstersLevel1 coinsLevel1 boxesLevel1 floorLevel1 flagLevel1 mushroomsLevel1
 
 mushroomsLevel1 :: [Mushroom]
-mushroomsLevel1 = [Mushroom 100 (70 + h) True]
+mushroomsLevel1 = [Mushroom 270 (140 + h) True]
 
 flagLevel1 :: Flag
 flagLevel1 = Flag 4400 (70 + h) False
@@ -118,7 +124,7 @@ coinsLevel1 =
     initialCoin (2160, 190 + h),
     initialCoin (3710, 140 + h)
   ]
-    ++ [initialCoin (250 + x * 20, 140 + h) | x <- [1, 3, 5]]
+    ++ [initialCoin (250 + x * 20, 140 + h) | x <- [3, 5]]
     ++ [initialCoin (2100 + x * 20, 140 + h) | x <- [1, 3, 5]]
     ++ [initialCoin (2570 + x * 20, 210 + h) | x <- [1, 2]]
 
@@ -134,10 +140,10 @@ floorLevel1 =
     ]
 
 level2 :: LevelSettings
-level2 = LevelSettings 20 monstersLevel2 coinsLevel2 boxesLevel2 floorLevel2 flagLevel2 mushroomsLevel2
+level2 = LevelSettings monstersLevel2 coinsLevel2 boxesLevel2 floorLevel2 flagLevel2 mushroomsLevel2
 
 mushroomsLevel2 :: [Mushroom]
-mushroomsLevel2 = [Mushroom 100 (70 + h) True]
+mushroomsLevel2 = [Mushroom 1170 (150 + h) True]
 
 flagLevel2 :: Flag
 flagLevel2 = Flag 5200 (70 + h) False
@@ -197,7 +203,8 @@ boxesLevel2 =
 
 coinsLevel2 :: [Coin]
 coinsLevel2 =
-  [initialCoin (220, 140 + h), initialCoin (600, 170 + h), initialCoin (820, 140 + h)] ++ [initialCoin (840 + x * 20, 180 + h) | x <- [0 .. 3]]
+  [initialCoin (220, 140 + h), initialCoin (600, 170 + h), initialCoin (820, 140 + h)] 
+    ++ [initialCoin (840 + x * 20, 180 + h) | x <- [0 .. 3]]
     ++ [initialCoin (1260 + x * 20, 150 + h) | x <- [0 .. 3]]
     ++ [initialCoin (1520, 150 + h)]
     ++ [initialCoin (1840 + x * 20, 200 + h) | x <- [0 .. 5]]
@@ -215,7 +222,7 @@ floorLevel2 =
     ]
 
 level3 :: LevelSettings 
-level3 = LevelSettings 20 [] [] [] [] flagLevel3 []
+level3 = LevelSettings [] [] [] [] flagLevel3 []
 
 flagLevel3 :: Flag
 flagLevel3 = Flag 5000 (70 - fromIntegral height / 2) False

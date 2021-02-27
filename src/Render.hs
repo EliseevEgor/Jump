@@ -43,7 +43,7 @@ renderFrame window glossState _ (RenderState player monsters boxes floors coins 
                   Pictures $
                     map
                       renderFloor
-                      floors,
+                       floors,
                 uncurry translate (viewPortTranslate viewport) $
                   Pictures $
                     map
@@ -81,7 +81,7 @@ renderBox :: Box -> Picture
 renderBox (Box x y w h) = Color (greyN 0.5) $ translate x y $ rectangleSolid w h
 
 renderPlayer :: Player -> Picture
-renderPlayer (Player (_, ypos) _ pSize) =
+renderPlayer (Player (_, ypos) _ pSize _) =
   Color black $ translate 0 ypos $ rectangleSolid pSize pSize
 
 -- finish level

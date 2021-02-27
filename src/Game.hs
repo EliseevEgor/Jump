@@ -120,8 +120,8 @@ playLevel ::
   SignalGen (Signal GameState, Signal Bool)
 playLevel windowSize directionKey _ level@(Level n) currentScore lives currentTimer =
   mdo
-    let l = getLevel n
-    player <- transfer3 initialPlayer (movePlayer 4 (levelBoxes l) (levelFloor l) (levelPsize l)) directionKey isBonus levelOver'
+    let l =  getLevel (helpFunction n currentScore)
+    player <- transfer4 initialPlayer (movePlayer 4 (levelBoxes l) (levelFloor l)) directionKey mushrooms' monsters' levelOver'
     flag <- transfer (levelFlag l) getFlag player
 
     floors <- stateful (levelFloor l) initM
@@ -133,10 +133,8 @@ playLevel windowSize directionKey _ level@(Level n) currentScore lives currentTi
     mushrooms <- transfer (levelMushrooms l) stateMushroom player
     mushrooms' <- delay (levelMushrooms l) mushrooms
 
-    isBonus <- memo (bonusIs <$> player <*> mushrooms')
-
     timer <- stateful currentTimer decrement
-    hits <- memo (counttMonsters <$> player <*> monsters')
+    hits <- memo (countMonsters <$> player <*> monsters')
     monsters <-
       transfer2
         (levelMonsters l)
@@ -170,14 +168,14 @@ playLevel windowSize directionKey _ level@(Level n) currentScore lives currentTi
             <*> pure lives
             <*> score
             <*> timer
-            <*> mushrooms
+            <*> mushrooms 
             <*> animation
             <*> windowSize
 
     return (GameState <$> renderState, animationEnd <$> animation)
   where
-    helper player@(Player (_, y) _ _) monsters timer
-      | any (close player) monsters
+    helper player@(Player (_, y) _ _ _) monsters timer
+      | any (close player) monsters && not (bonus player)
           || y < floorLevel - floorHeight / 2
           || timer == 0 =
         Just Lose
@@ -213,11 +211,11 @@ countCoins p coins =
       (filter (\x -> vis x && playerCoin p x == 1) coins)
 
 bonusIs :: Player -> [Mushroom] -> Bool
-bonusIs p mushrooms = any (\x -> v x && playerMushroom p x == 1) mushrooms   
+bonusIs p = any (\x -> v x && playerMushroom p x == 1)   
 
 -- counter of killed monsters   
-counttMonsters :: Player -> [Monster] -> Float
-counttMonsters p m =
+countMonsters :: Player -> [Monster] -> Float
+countMonsters p m =
   fromIntegral $
     length
       (filter (\x -> isAlive x && (playerMonster p x == 1)) m)
@@ -258,7 +256,7 @@ stateMonster player _ monsters = fmap helper monsters
           1 -> Monster (x, y) d s False
           2 -> Monster (x, y) d s True
           3 ->
-            moveMonster {-player-}
+            moveMonster
               (Monster (x, y) d s is)
         else Monster (x, y) d s is
 
@@ -276,7 +274,7 @@ dist :: (Float, Float) -> (Float, Float) -> Float
 dist (x1, y1) (x2, y2) = (x2 - x1) ^ 2 + (y2 - y1) ^ 2
 
 close :: Player -> Monster -> Bool
-close (Player (x, y) _ pSize) (Monster (xm, ym) _ _ is)
+close (Player (x, y) _ pSize _) (Monster (xm, ym) _ _ is)
   | not is = False
   | (y - pSize / 2) < (ym + monsterSize / 2)
       && dist (x, y) (xm, ym) < (pSize / 2 + monsterSize / 2) ^ 2 =
@@ -285,21 +283,21 @@ close (Player (x, y) _ pSize) (Monster (xm, ym) _ _ is)
 
 -- player-coin interaction
 playerCoin :: Player -> Coin -> Int
-playerCoin (Player (x, y) _ pSize) (Coin xc yc _) =
+playerCoin (Player (x, y) _ pSize _) (Coin xc yc _) =
   if dist (x, y) (xc, yc) <= (pSize / 2 + coinSize) ^ 2 then 1 else 0
 
 playerMushroom :: Player -> Mushroom -> Int
-playerMushroom (Player (x, y) _ pSize) (Mushroom xc yc _) =
-  if dist (x, y) (xc, yc) <= (pSize / 2 + mushroomSize) ^ 2 then 1 else 0
+playerMushroom (Player (x, y) _ pSize _) (Mushroom xc yc _) =
+  if dist (x, y) (xc, yc) <= (pSize / 2 + mushroomSize / 2) ^ 2 then 1 else 0
 
 -- player-flag interaction
 getFlag :: Player -> Flag -> Flag
-getFlag (Player (x, _) _ _) (Flag xf yf w) =
+getFlag (Player (x, _) _ _ _) (Flag xf yf w) =
   if x >= xf then Flag xf yf True else Flag xf yf w
 
 -- player-monster interaction
 playerMonster :: Player -> Monster -> Int
-playerMonster (Player (x, y) _ pSize) (Monster (xm, ym) _ _ _)
+playerMonster (Player (x, y) _ pSize _) (Monster (xm, ym) _ _ _)
   | (y - pSize / 2) == (ym + monsterSize / 2)
       && (x + pSize / 2) > (xm - monsterSize / 2)
       && (x - pSize / 2) < (xm + monsterSize / 2) =
@@ -323,39 +321,27 @@ moveMonster (Monster (x, y) (GoRight n) step True) =
 
 -- viewPort move function
 viewPortMove :: Player -> ViewPort -> ViewPort
-viewPortMove (Player (x, _) _ _) ViewPort {viewPortTranslate = _, viewPortRotate = rotation, viewPortScale = scaled} =
+viewPortMove (Player (x, _) _ _ _) ViewPort {viewPortTranslate = _, viewPortRotate = rotation, viewPortScale = scaled} =
   ViewPort
     { viewPortTranslate = (- x, 0),
       viewPortRotate = rotation,
       viewPortScale = scaled
     }
 
--- player move function
-movePlayer :: Float -> [Box] -> [Box] -> Float -> (Bool, Bool, Bool) -> Bool -> Maybe Ending -> Player -> Player
-movePlayer _ _ _ personSize _ _ (Just _) (Player pos t _) = Player pos t personSize
-movePlayer speed boxes floors personSize direction bonus Nothing player@(Player (x,y) t _)
-  | bonus = move boxes floors direction (Player (x, y) t (personSize + 10)) speed
-  | otherwise = move boxes floors direction (Player (x, y) t personSize) speed
--- | limits (position (move boxes floors direction player speed)) personSize = Player a b personSize
--- | otherwise = move boxes floors direction (Player a b personSize) speed
+takeBonus ::Player -> [Mushroom] -> Bool
+takeBonus p = any (ddt p) where   
+  ddt (Player (x, y) _ pSize _) (Mushroom xc yc _) =
+    dist (x, y) (xc, yc) <= (pSize / 2 + mushroomSize / 2) ^ 2 + 5 
 
--- global limits
--- limits :: (Float, Float) -> Float -> Bool
--- limits (xmon, ymon) size =
---   xmon
---     > worldWidth
---     / 2
---     - size
---     / 2
---     || xmon
---     < (-100 + xmon)
---     || ymon
---     > worldHeight
---     / 2
---     - size
---     / 2
---     || ymon
---     < (- worldHeight / 2 + size / 2)
+takeAwayBonus :: Player -> [Monster] -> Bool
+takeAwayBonus p = any (close p)
+
+movePlayer ::Float -> [Box] -> [Box] -> (Bool, Bool, Bool) -> [Mushroom] -> [Monster] -> Maybe Ending -> Player -> Player
+movePlayer _ _ _ _ _ _ (Just _) (Player pos t personSize b) = Player pos t personSize b
+movePlayer increment boxes floors direction mushrooms monsters Nothing player@(Player (x, y) t personSize b)
+  | takeAwayBonus player monsters && b = move boxes floors direction (Player (x, y + 30) t (personSize - 10) False) increment
+  | takeBonus player mushrooms && not b = move boxes floors direction (Player (x, y + 5) t (personSize + 10) True) increment
+  | otherwise = move boxes floors direction (Player (x, y) t personSize b) increment
 
 -- limits for player
 limitDown :: [Box] -> [Box] -> Float -> Float -> Float -> Bool
@@ -418,7 +404,7 @@ guardSpeedDown t
 
 
 move :: [Box] -> [Box] -> (Bool, Bool, Bool) -> Player -> Float -> Player
-move boxes floors (True, _, False) (Player (xpos, ypos) (tLeft, tRight) pSize) increment =
+move boxes floors (True, _, False) (Player (xpos, ypos) (tLeft, tRight) pSize b) increment =
   let boxL =
         limitLeft
           boxes
@@ -435,7 +421,7 @@ move boxes floors (True, _, False) (Player (xpos, ypos) (tLeft, tRight) pSize) i
           (ypos + gravity)
           pSize
           (- increment - a * tLeft + a * tRight)
-   in ( if limitDown boxes floors xpos ypos pSize
+   in ( if limitDown boxes floors xpos ypos pSize 
           then
             if isJust boxL
               then
@@ -445,11 +431,13 @@ move boxes floors (True, _, False) (Player (xpos, ypos) (tLeft, tRight) pSize) i
                   )
                   (0, 0)
                   pSize
+                  b
               else
                 Player
                   (xpos - increment - a * tLeft + a * tRight, ypos)
                   (guardSpeedUp tLeft, guardSpeedDown tRight)
                   pSize
+                  b
           else
             if isJust boxLg
               then
@@ -459,13 +447,15 @@ move boxes floors (True, _, False) (Player (xpos, ypos) (tLeft, tRight) pSize) i
                   )
                   (0, 0)
                   pSize
+                  b
               else
                 Player
                   (xpos - increment - a * tLeft + a * tRight, ypos + gravity)
                   (tLeft, guardSpeedDown tRight)
                   pSize
+                  b
       )
-move boxes floors (_, True, False) (Player (xpos, ypos) (tLeft, tRight) pSize) increment =
+move boxes floors (_, True, False) (Player (xpos, ypos) (tLeft, tRight) pSize b) increment =
   let boxR =
         limitRight
           boxes
@@ -492,11 +482,13 @@ move boxes floors (_, True, False) (Player (xpos, ypos) (tLeft, tRight) pSize) i
                   )
                   (0, 0)
                   pSize
+                  b
               else
                 Player
                   (xpos + increment + a * tRight - a * tLeft, ypos)
                   (guardSpeedDown tLeft, guardSpeedUp tRight)
                   pSize
+                  b
           else
             if isJust boxRg
               then
@@ -506,13 +498,15 @@ move boxes floors (_, True, False) (Player (xpos, ypos) (tLeft, tRight) pSize) i
                   )
                   (0, 0)
                   pSize
+                  b
               else
                 Player
                   (xpos + increment + a * tRight - a * tLeft, ypos + gravity)
                   (guardSpeedDown tLeft, tRight)
                   pSize
+                  b
       )
-move boxes floors (True, _, True) (Player (xpos, ypos) (tLeft, tRight) pSize) increment =
+move boxes floors (True, _, True) (Player (xpos, ypos) (tLeft, tRight) pSize b) increment =
   let box = limitUp boxes xpos ypos pSize
       boxL =
         limitLeft
@@ -542,6 +536,7 @@ move boxes floors (True, _, True) (Player (xpos, ypos) (tLeft, tRight) pSize) in
                       )
                       (0, 0)
                       pSize
+                      b
                   else
                     Player
                       ( xpos - increment - a * tLeft + a * tRight,
@@ -549,6 +544,7 @@ move boxes floors (True, _, True) (Player (xpos, ypos) (tLeft, tRight) pSize) in
                       )
                       (guardSpeedUp tLeft, guardSpeedDown tRight)
                       pSize
+                      b
               else
                 if isJust boxL
                   then
@@ -562,11 +558,13 @@ move boxes floors (True, _, True) (Player (xpos, ypos) (tLeft, tRight) pSize) in
                       )
                       (0, 0)
                       pSize
+                      b
                   else
                     Player
                       (xpos - increment - a * tLeft + a * tRight, ypos + 100)
                       (guardSpeedUp tLeft, guardSpeedDown tRight)
                       pSize
+                      b
           else
             if isJust boxLg
               then
@@ -580,13 +578,15 @@ move boxes floors (True, _, True) (Player (xpos, ypos) (tLeft, tRight) pSize) in
                   )
                   (0, 0)
                   pSize
+                  b
               else
                 Player
                   (xpos - increment - a * tLeft + a * tRight, ypos + gravity)
                   (tLeft, guardSpeedDown tRight)
                   pSize
+                  b
       )
-move boxes floors (_, True, True) (Player (xpos, ypos) (tLeft, tRight) pSize) increment =
+move boxes floors (_, True, True) (Player (xpos, ypos) (tLeft, tRight) pSize b) increment =
   let box = limitUp boxes xpos ypos pSize
       boxR =
         limitRight
@@ -620,6 +620,7 @@ move boxes floors (_, True, True) (Player (xpos, ypos) (tLeft, tRight) pSize) in
                       )
                       (0, 0)
                       pSize
+                      b
                   else
                     Player
                       ( xpos + increment + a * tRight - a * tLeft,
@@ -627,6 +628,7 @@ move boxes floors (_, True, True) (Player (xpos, ypos) (tLeft, tRight) pSize) in
                       )
                       (guardSpeedDown tLeft, guardSpeedUp tRight)
                       pSize
+                      b
               else
                 if isJust boxR
                   then
@@ -640,11 +642,13 @@ move boxes floors (_, True, True) (Player (xpos, ypos) (tLeft, tRight) pSize) in
                       )
                       (0, 0)
                       pSize
+                      b
                   else
                     Player
                       (xpos + increment + a * tRight - a * tLeft, ypos + 100)
                       (guardSpeedDown tLeft, guardSpeedUp tRight)
                       pSize
+                      b
           else
             if isJust boxRg
               then
@@ -658,13 +662,15 @@ move boxes floors (_, True, True) (Player (xpos, ypos) (tLeft, tRight) pSize) in
                   )
                   (0, 0)
                   pSize
+                  b
               else
                 Player
                   (xpos + increment + a * tRight - a * tLeft, ypos + gravity)
                   (guardSpeedDown tLeft, tRight)
                   pSize
+                  b
       )
-move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSize) _ =
+move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSize b) increment =
   let box = limitUp boxes xpos ypos pSize
       boxR = limitRight boxes floors xpos ypos pSize (- a * tLeft + a * tRight)
       boxL = limitLeft boxes floors xpos ypos pSize (- a * tLeft + a * tRight)
@@ -686,6 +692,7 @@ move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSiz
                       )
                       (guardSpeedDown tLeft, guardSpeedDown tRight)
                       pSize
+                      b
                   else
                     if isJust boxL
                       then
@@ -699,6 +706,7 @@ move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSiz
                           )
                           (guardSpeedDown tLeft, guardSpeedDown tRight)
                           pSize
+                          b
                       else
                         Player
                           ( xpos - a * tLeft + a * tRight,
@@ -706,6 +714,7 @@ move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSiz
                           )
                           (guardSpeedDown tLeft, guardSpeedDown tRight)
                           pSize
+                          b
               else
                 if isJust boxR
                   then
@@ -719,6 +728,7 @@ move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSiz
                       )
                       (guardSpeedDown tLeft, guardSpeedDown tRight)
                       pSize
+                      b
                   else
                     if isJust boxL
                       then
@@ -732,11 +742,13 @@ move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSiz
                           )
                           (guardSpeedDown tLeft, guardSpeedDown tRight)
                           pSize
+                          b
                       else
                         Player
                           (xpos - a * tLeft + a * tRight, ypos + 100)
                           (guardSpeedDown tLeft, guardSpeedDown tRight)
                           pSize
+                          b
           else
             if isJust boxRg
               then
@@ -746,6 +758,7 @@ move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSiz
                   )
                   (guardSpeedDown tLeft, guardSpeedDown tRight)
                   pSize
+                  b
               else
                 if isJust boxLg
                   then
@@ -759,13 +772,15 @@ move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSiz
                       )
                       (guardSpeedDown tLeft, guardSpeedDown tRight)
                       pSize
+                      b
                   else
                     Player
                       (xpos - a * tLeft + a * tRight, ypos + gravity)
                       (guardSpeedDown tLeft, guardSpeedDown tRight)
                       pSize
+                      b
       )
-move boxes floors (False, False, False) (Player (xpos, ypos) (tLeft, tRight) pSize) _ =
+move boxes floors (False, False, False) (Player (xpos, ypos) (tLeft, tRight) pSize b) increment =
   let boxR =
         limitRight boxes floors xpos ypos pSize (- a * tLeft + a * tRight)
       boxL =
@@ -788,6 +803,7 @@ move boxes floors (False, False, False) (Player (xpos, ypos) (tLeft, tRight) pSi
                   )
                   (guardSpeedDown tLeft, guardSpeedDown tRight)
                   pSize
+                  b
               else
                 if isJust boxL
                   then
@@ -801,11 +817,13 @@ move boxes floors (False, False, False) (Player (xpos, ypos) (tLeft, tRight) pSi
                       )
                       (guardSpeedDown tLeft, guardSpeedDown tRight)
                       pSize
+                      b
                   else
                     Player
                       (xpos - a * tLeft + a * tRight, ypos)
                       (guardSpeedDown tLeft, guardSpeedDown tRight)
                       pSize
+                      b
           else
             if isJust boxRg
               then
@@ -819,6 +837,7 @@ move boxes floors (False, False, False) (Player (xpos, ypos) (tLeft, tRight) pSi
                   )
                   (guardSpeedDown tLeft, guardSpeedDown tRight)
                   pSize
+                  b
               else
                 if isJust boxLg
                   then
@@ -832,11 +851,13 @@ move boxes floors (False, False, False) (Player (xpos, ypos) (tLeft, tRight) pSi
                       )
                       (guardSpeedDown tLeft, guardSpeedDown tRight)
                       pSize
+                      b
                   else
                     Player
                       (xpos - a * tLeft + a * tRight, ypos + gravity)
                       (guardSpeedDown tLeft, guardSpeedDown tRight)
                       pSize
+                      b
       )
 
 outputFunction :: GLFW.Window -> State -> GameState -> IO ()
