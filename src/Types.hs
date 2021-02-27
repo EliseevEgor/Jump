@@ -57,9 +57,6 @@ mushroomSize = 20
 
 newtype WinGame = WinGame Float
 
-instance Show WinGame where
-  show (WinGame score) = "Сongratulations, you completed the game" ++ show score
-
 type Type = Either WinGame
 
 newtype GameState = GameState RenderState
