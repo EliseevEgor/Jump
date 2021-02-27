@@ -55,10 +55,7 @@ mushroomSize :: Float
 mushroomSize = 20
 
 
-newtype WinGame = WinGame Float
-
-instance Show WinGame where
-  show (WinGame score) = "Сongratulations, you completed the game" ++ show score
+data WinGame = WinGame | Other
 
 type Type = Either WinGame
 
