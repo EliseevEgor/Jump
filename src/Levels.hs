@@ -8,11 +8,11 @@ import Types
 import Control.Monad.Except
 
 
-helpFunction :: Int -> Float -> Type LevelSettings
-helpFunction n score 
+helpFunction :: Int -> Type LevelSettings
+helpFunction n 
   | n == 1 = return level1
   | n == 2 = return level2
-  | otherwise = throwError $ WinGame score
+  | otherwise = throwError $ WinGame
 
 getLevel :: Type LevelSettings -> LevelSettings
 getLevel (Right level) = level

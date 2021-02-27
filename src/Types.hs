@@ -55,7 +55,7 @@ mushroomSize :: Float
 mushroomSize = 20
 
 
-newtype WinGame = WinGame Float
+data WinGame = WinGame | Other
 
 type Type = Either WinGame
 

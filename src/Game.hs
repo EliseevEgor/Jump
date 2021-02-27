@@ -120,7 +120,7 @@ playLevel ::
   SignalGen (Signal GameState, Signal Bool)
 playLevel windowSize directionKey _ level@(Level n) currentScore lives currentTimer =
   mdo
-    let l =  getLevel (helpFunction n currentScore)
+    let l =  getLevel (helpFunction n)
     player <- transfer4 initialPlayer (movePlayer 4 (levelBoxes l) (levelFloor l)) directionKey mushrooms' monsters' levelOver'
     flag <- transfer (levelFlag l) getFlag player
 
