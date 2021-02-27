@@ -22,4 +22,4 @@ Mario-style game
 * Yellow cycles - coins 
 * Tall green rectangle - flag
 * Grey squares - boxes
-* Yellow cycles - mushrooms
+* Red cycles - mushrooms
