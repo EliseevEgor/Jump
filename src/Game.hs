@@ -121,7 +121,7 @@ playLevel ::
 playLevel windowSize directionKey _ level@(Level n) currentScore lives currentTimer =
   mdo
     let l = getLevel n
-    player <- transfer2 initialPlayer (movePlayer 4 (levelBoxes l) (levelFloor l) (levelPsize l)) directionKey levelOver'
+    player <- transfer3 initialPlayer (movePlayer 4 (levelBoxes l) (levelFloor l) (levelPsize l)) directionKey isBonus levelOver'
     flag <- transfer (levelFlag l) getFlag player
 
     floors <- stateful (levelFloor l) initM
@@ -129,6 +129,11 @@ playLevel windowSize directionKey _ level@(Level n) currentScore lives currentTi
     coinsCount <- memo (countCoins <$> player <*> coins')
     coins <- transfer (levelCoins l) stateCoin player
     coins' <- delay (levelCoins l) coins
+
+    mushrooms <- transfer (levelMushrooms l) stateMushroom player
+    mushrooms' <- delay (levelMushrooms l) mushrooms
+
+    isBonus <- memo (bonusIs <$> player <*> mushrooms')
 
     timer <- stateful currentTimer decrement
     hits <- memo (counttMonsters <$> player <*> monsters')
@@ -165,6 +170,7 @@ playLevel windowSize directionKey _ level@(Level n) currentScore lives currentTi
             <*> pure lives
             <*> score
             <*> timer
+            <*> mushrooms
             <*> animation
             <*> windowSize
 
@@ -206,6 +212,9 @@ countCoins p coins =
     length
       (filter (\x -> vis x && playerCoin p x == 1) coins)
 
+bonusIs :: Player -> [Mushroom] -> Bool
+bonusIs p mushrooms = any (\x -> v x && playerMushroom p x == 1) mushrooms   
+
 -- counter of killed monsters   
 counttMonsters :: Player -> [Monster] -> Float
 counttMonsters p m =
@@ -227,6 +236,16 @@ stateCoin p = fmap helper
           1 -> Coin x y False
           0 -> Coin x y v
         else Coin x y v
+
+stateMushroom :: Player -> [Mushroom] -> [Mushroom]
+stateMushroom p = fmap helper
+  where
+    helper (Mushroom x y v) =
+      if v
+        then case playerMushroom p (Mushroom x y v) of
+          1 -> Mushroom x y False
+          0 -> Mushroom x y v
+        else Mushroom x y v
 
 -- main function for monsters
 stateMonster :: Player -> Maybe Ending -> [Monster] -> [Monster]
@@ -269,6 +288,10 @@ playerCoin :: Player -> Coin -> Int
 playerCoin (Player (x, y) _ pSize) (Coin xc yc _) =
   if dist (x, y) (xc, yc) <= (pSize / 2 + coinSize) ^ 2 then 1 else 0
 
+playerMushroom :: Player -> Mushroom -> Int
+playerMushroom (Player (x, y) _ pSize) (Mushroom xc yc _) =
+  if dist (x, y) (xc, yc) <= (pSize / 2 + mushroomSize) ^ 2 then 1 else 0
+
 -- player-flag interaction
 getFlag :: Player -> Flag -> Flag
 getFlag (Player (x, _) _ _) (Flag xf yf w) =
@@ -308,29 +331,31 @@ viewPortMove (Player (x, _) _ _) ViewPort {viewPortTranslate = _, viewPortRotate
     }
 
 -- player move function
-movePlayer :: Float -> [Box] -> [Box] -> Float -> (Bool, Bool, Bool) -> Maybe Ending -> Player -> Player
-movePlayer _ _ _ personSize _ (Just _) (Player x y _) = Player x y personSize
-movePlayer increment boxes floors personSize direction Nothing player@(Player a b _)
-  | limits (position (move boxes floors direction player increment)) personSize = Player a b personSize
-  | otherwise = move boxes floors direction (Player a b personSize) increment
+movePlayer :: Float -> [Box] -> [Box] -> Float -> (Bool, Bool, Bool) -> Bool -> Maybe Ending -> Player -> Player
+movePlayer _ _ _ personSize _ _ (Just _) (Player pos t _) = Player pos t personSize
+movePlayer speed boxes floors personSize direction bonus Nothing player@(Player (x,y) t _)
+  | bonus = move boxes floors direction (Player (x, y) t (personSize + 10)) speed
+  | otherwise = move boxes floors direction (Player (x, y) t personSize) speed
+-- | limits (position (move boxes floors direction player speed)) personSize = Player a b personSize
+-- | otherwise = move boxes floors direction (Player a b personSize) speed
 
 -- global limits
-limits :: (Float, Float) -> Float -> Bool
-limits (xmon, ymon) size =
-  xmon
-    > worldWidth
-    / 2
-    - size
-    / 2
-    || xmon
-    < (-100 + xmon)
-    || ymon
-    > worldHeight
-    / 2
-    - size
-    / 2
-    || ymon
-    < (- worldHeight / 2 + size / 2)
+-- limits :: (Float, Float) -> Float -> Bool
+-- limits (xmon, ymon) size =
+--   xmon
+--     > worldWidth
+--     / 2
+--     - size
+--     / 2
+--     || xmon
+--     < (-100 + xmon)
+--     || ymon
+--     > worldHeight
+--     / 2
+--     - size
+--     / 2
+--     || ymon
+--     < (- worldHeight / 2 + size / 2)
 
 -- limits for player
 limitDown :: [Box] -> [Box] -> Float -> Float -> Float -> Bool

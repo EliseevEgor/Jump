@@ -77,17 +77,6 @@
   (major1) == 1 && (major2) == 13 && (minor) <= 1)
 #endif /* MIN_VERSION_gloss_rendering */
 
-/* package random-1.1 */
-#ifndef VERSION_random
-#define VERSION_random "1.1"
-#endif /* VERSION_random */
-#ifndef MIN_VERSION_random
-#define MIN_VERSION_random(major1,major2,minor) (\
-  (major1) <  1 || \
-  (major1) == 1 && (major2) <  1 || \
-  (major1) == 1 && (major2) == 1 && (minor) <= 0)
-#endif /* MIN_VERSION_random */
-
 /* tool gcc-9 */
 #ifndef TOOL_VERSION_gcc
 #define TOOL_VERSION_gcc "9"

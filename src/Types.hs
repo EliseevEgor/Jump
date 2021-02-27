@@ -51,6 +51,9 @@ monsterSize = 20
 monsterSpeed :: Float
 monsterSpeed = 2.5
 
+mushroomSize :: Float
+mushroomSize = 20
+
 
 newtype GameState = GameState RenderState
 
@@ -65,6 +68,7 @@ data RenderState = RenderState { renderState_player :: Player
                                , renderState_lives :: Int
                                , renderState_score :: Float
                                , renderState_timer :: Float
+                               , renderState_mushrooms :: [Mushroom]
                                , renderState_animation :: Maybe Animation
                                , renderState_windowSize :: (Int, Int) }
                  | StartRenderState (Int, Int)
@@ -80,12 +84,19 @@ data LevelSettings = LevelSettings { levelPsize :: Float
                                    , levelBoxes :: [Box]
                                    , levelFloor :: [Box]
                                    , levelFlag :: Flag
+                                   , levelMushrooms :: [Mushroom]
                                    }
 
 data Coin = Coin
   { coin_x :: Float
   , coin_y :: Float
   , vis    :: Bool
+  }
+
+data Mushroom = Mushroom
+  { mushroom_x :: Float
+  , mushroom_y :: Float
+  , v          :: Bool
   }
 
 data Flag = Flag
@@ -106,6 +117,7 @@ data Player = Player
   { position   :: Pos
   , timePlayer :: (Float, Float)
   , size       :: Float
+ -- , bonus      :: Bool
   }
 
 data Ending = Win | Lose

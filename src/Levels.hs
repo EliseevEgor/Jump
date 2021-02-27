@@ -37,7 +37,10 @@ initialFloor :: (Float, Float) -> Box
 initialFloor (x, y) = Box x y floorWidth floorHeight
 
 level1 :: LevelSettings
-level1 = LevelSettings 30 monstersLevel1 coinsLevel1 boxesLevel1 floorLevel1 flagLevel1
+level1 = LevelSettings 20 monstersLevel1 coinsLevel1 boxesLevel1 floorLevel1 flagLevel1 mushroomsLevel1
+
+mushroomsLevel1 :: [Mushroom]
+mushroomsLevel1 = [Mushroom 100 (70 + h) True]
 
 flagLevel1 :: Flag
 flagLevel1 = Flag 4400 (70 + h) False
@@ -131,7 +134,10 @@ floorLevel1 =
     ]
 
 level2 :: LevelSettings
-level2 = LevelSettings 20 monstersLevel2 coinsLevel2 boxesLevel2 floorLevel2 flagLevel2
+level2 = LevelSettings 20 monstersLevel2 coinsLevel2 boxesLevel2 floorLevel2 flagLevel2 mushroomsLevel2
+
+mushroomsLevel2 :: [Mushroom]
+mushroomsLevel2 = [Mushroom 100 (70 + h) True]
 
 flagLevel2 :: Flag
 flagLevel2 = Flag 5200 (70 + h) False
@@ -208,8 +214,8 @@ floorLevel2 =
       | x <- [0 .. 14] ++ [16 .. 21] ++ [23] ++ [25 .. 27] ++ [31 .. 33] ++ [35 ..]
     ]
 
-level3 :: LevelSettings
-level3 = LevelSettings 20 [] [] [] [] flagLevel3
+level3 :: LevelSettings 
+level3 = LevelSettings 20 [] [] [] [] flagLevel3 []
 
 flagLevel3 :: Flag
 flagLevel3 = Flag 5000 (70 - fromIntegral height / 2) False
