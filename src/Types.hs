@@ -4,7 +4,7 @@ import           Graphics.Gloss
 import           Graphics.Gloss.Data.ViewPort
 
 initialPlayer :: Player
-initialPlayer = Player (0, 0) (0, 0) playerSize
+initialPlayer = Player (0, 0) (0, 0) playerSize False
 
 initialLevel :: LevelStatus
 initialLevel = Level 1
@@ -51,6 +51,16 @@ monsterSize = 20
 monsterSpeed :: Float
 monsterSpeed = 2.5
 
+mushroomSize :: Float
+mushroomSize = 20
+
+
+newtype WinGame = WinGame Float
+
+instance Show WinGame where
+  show (WinGame score) = "Сongratulations, you completed the game" ++ show score
+
+type Type = Either WinGame
 
 newtype GameState = GameState RenderState
 
@@ -65,6 +75,7 @@ data RenderState = RenderState { renderState_player :: Player
                                , renderState_lives :: Int
                                , renderState_score :: Float
                                , renderState_timer :: Float
+                               , renderState_mushrooms :: [Mushroom]
                                , renderState_animation :: Maybe Animation
                                , renderState_windowSize :: (Int, Int) }
                  | StartRenderState (Int, Int)
@@ -74,18 +85,24 @@ type Pos = Point
 data Animation = DeathAnimation Float | NextLevelAnimation LevelStatus Float
                  deriving Show
 
-data LevelSettings = LevelSettings { levelPsize :: Float
-                                   , levelMonsters :: [Monster]
+data LevelSettings = LevelSettings { levelMonsters :: [Monster]
                                    , levelCoins :: [Coin]
                                    , levelBoxes :: [Box]
                                    , levelFloor :: [Box]
                                    , levelFlag :: Flag
+                                   , levelMushrooms :: [Mushroom]
                                    }
 
 data Coin = Coin
   { coin_x :: Float
   , coin_y :: Float
   , vis    :: Bool
+  }
+
+data Mushroom = Mushroom
+  { mushroom_x :: Float
+  , mushroom_y :: Float
+  , v          :: Bool
   }
 
 data Flag = Flag
@@ -106,12 +123,13 @@ data Player = Player
   { position   :: Pos
   , timePlayer :: (Float, Float)
   , size       :: Float
+  , bonus      :: Bool
   }
 
 data Ending = Win | Lose
               deriving (Show, Eq)
 
-data GameStatus = Start | InGame
+data GameStatus = Start | InGame | End
                   deriving Show
 
 newtype LevelStatus = Level Int

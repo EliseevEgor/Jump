@@ -11,7 +11,7 @@ import Types
 
 -- main function in graphics
 renderFrame :: GLFW.Window -> State -> (Float, Float) -> RenderState -> IO ()
-renderFrame window glossState _ (RenderState player monsters boxes floors coins flag gameOver viewport lives score timer mbAnimation dimensions) =
+renderFrame window glossState _ (RenderState player monsters boxes floors coins flag gameOver viewport lives score timer mushrooms mbAnimation dimensions ) =
   do
     displayPicture dimensions white glossState (viewPortScale viewport) $
       Pictures $
@@ -43,7 +43,12 @@ renderFrame window glossState _ (RenderState player monsters boxes floors coins 
                   Pictures $
                     map
                       renderFloor
-                      floors
+                       floors,
+                uncurry translate (viewPortTranslate viewport) $
+                  Pictures $
+                    map
+                      renderMushroom
+                      (filter v mushrooms)
               ]
     swapBuffers window
 renderFrame window glossState _ (StartRenderState dimensions) = do
@@ -53,6 +58,10 @@ renderFrame window glossState _ (StartRenderState dimensions) = do
         Color green $ translate (-140) (-50) $ scale 0.1 0.1 $ Text "Press s"
       ]
   swapBuffers window
+
+renderMushroom :: Mushroom -> Picture
+renderMushroom (Mushroom x y _) = 
+  Color red $ translate x y $ circleSolid (mushroomSize / 2)
 
 renderFlag :: Flag -> Picture
 renderFlag (Flag xf yf _) =
@@ -72,7 +81,7 @@ renderBox :: Box -> Picture
 renderBox (Box x y w h) = Color (greyN 0.5) $ translate x y $ rectangleSolid w h
 
 renderPlayer :: Player -> Picture
-renderPlayer (Player (_, ypos) _ pSize) =
+renderPlayer (Player (_, ypos) _ pSize _) =
   Color black $ translate 0 ypos $ rectangleSolid pSize pSize
 
 -- finish level
