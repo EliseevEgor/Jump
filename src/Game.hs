@@ -9,10 +9,7 @@ import Control.Applicative
     (<*>),
     (<|>),
   )
-import Control.Monad
-  ( join,
-    unless,
-  )
+
 import Data.List
 import FRP.Elerea.Simple
 import Graphics.Gloss.Data.ViewPort
@@ -218,7 +215,7 @@ countMonsters :: Player -> [Monster] -> Float
 countMonsters p m =
   fromIntegral $
     length
-      (filter (\x -> isAlive x && playerMonster p x == 1) m)
+      (filter (\x -> isAlive x && playerMonster p x == Dead) m)
 
 -- decrement for timer
 decrement :: Float -> Float
@@ -244,9 +241,9 @@ stateMonster player _ monsters = fmap helper monsters
   where
     helper (Monster (x, y) d s is)
       | is = case playerMonster player (Monster (x, y) d s is) of
-        1 -> Monster (x, y) d s False
-        2 -> Monster (x, y) d s True
-        3 ->
+        Dead -> Monster (x, y) d s False
+        Hit -> Monster (x, y) d s True
+        Move ->
           moveMonster
             (Monster (x, y) d s is)
       | otherwise = Monster (x, y) d s is
@@ -287,16 +284,16 @@ getFlag (Player (x, _) _ _ _) (Flag xf yf w) =
   Flag xf yf (x >= xf || w)
 
 -- player-monster interaction
-playerMonster :: Player -> Monster -> Int
+playerMonster :: Player -> Monster -> MonsterStatus
 playerMonster (Player (x, y) _ pSize _) (Monster (xm, ym) _ _ _)
   | (y - pSize / 2) == (ym + monsterSize / 2)
       && (x + pSize / 2) > (xm - monsterSize / 2)
       && (x - pSize / 2) < (xm + monsterSize / 2) =
-    1
+    Dead
   | (y - pSize / 2) < (ym + monsterSize / 2)
       && dist (x, y) (xm, ym) < (pSize / 2 + monsterSize / 2) ^ 2 =
-    2
-  | otherwise = 3
+    Hit
+  | otherwise = Move
 
 -- monster move function
 moveMonster :: Monster -> Monster
@@ -351,7 +348,7 @@ limitUp boxes x y pSize =
   find
     ( \boxU ->
         (y + pSize / 2 <= box_y boxU - boxSize / 2)
-          && (y + pSize / 2 + 100 > box_y boxU - boxSize / 2)
+          && (y + pSize / 2 + jumpHeight > box_y boxU - boxSize / 2)
           && (x - pSize / 2 < box_x boxU + boxSize / 2)
           && (x + pSize / 2 > box_x boxU - boxSize / 2)
     )
@@ -422,7 +419,7 @@ move boxes floors (True, _, False) (Player (xpos, ypos) (tLeft, tRight) pSize b)
                 (0, 0)
                 pSize
                 b
-            otherwise ->
+            Nothing ->
               Player
                 (xpos - increment - a * tLeft + a * tRight, ypos)
                 (guardSpeedUp tLeft, guardSpeedDown tRight)
@@ -437,7 +434,7 @@ move boxes floors (True, _, False) (Player (xpos, ypos) (tLeft, tRight) pSize b)
                 (0, 0)
                 pSize
                 b
-            otherwise ->
+            Nothing ->
               Player
                 (xpos - increment - a * tLeft + a * tRight, ypos + gravity)
                 (tLeft, guardSpeedDown tRight)
@@ -471,7 +468,7 @@ move boxes floors (_, True, False) (Player (xpos, ypos) (tLeft, tRight) pSize b)
                 (0, 0)
                 pSize
                 b
-            otherwise ->
+            Nothing ->
               Player
                 (xpos + increment + a * tRight - a * tLeft, ypos)
                 (guardSpeedDown tLeft, guardSpeedUp tRight)
@@ -486,7 +483,7 @@ move boxes floors (_, True, False) (Player (xpos, ypos) (tLeft, tRight) pSize b)
                 (0, 0)
                 pSize
                 b
-            otherwise ->
+            Nothing ->
               Player
                 (xpos + increment + a * tRight - a * tLeft, ypos + gravity)
                 (guardSpeedDown tLeft, tRight)
@@ -522,7 +519,7 @@ move boxes floors (True, _, True) (Player (xpos, ypos) (tLeft, tRight) pSize b) 
                   (0, 0)
                   pSize
                   b
-              otherwise ->
+              Nothing ->
                 Player
                   ( xpos - increment - a * tLeft + a * tRight,
                     box_y bU - boxSize / 2 - pSize / 2
@@ -530,7 +527,7 @@ move boxes floors (True, _, True) (Player (xpos, ypos) (tLeft, tRight) pSize b) 
                   (guardSpeedUp tLeft, guardSpeedDown tRight)
                   pSize
                   b
-            otherwise -> case boxL of
+            Nothing -> case boxL of
               (Just bL) ->
                 Player
                   ( box_x bL
@@ -538,14 +535,14 @@ move boxes floors (True, _, True) (Player (xpos, ypos) (tLeft, tRight) pSize b) 
                       / 2
                       + box_width bL
                       / 2,
-                    ypos + 100
+                    ypos + jumpHeight
                   )
                   (0, 0)
                   pSize
                   b
-              otherwise ->
+              Nothing ->
                 Player
-                  (xpos - increment - a * tLeft + a * tRight, ypos + 100)
+                  (xpos - increment - a * tLeft + a * tRight, ypos + jumpHeight)
                   (guardSpeedUp tLeft, guardSpeedDown tRight)
                   pSize
                   b
@@ -562,7 +559,7 @@ move boxes floors (True, _, True) (Player (xpos, ypos) (tLeft, tRight) pSize b) 
                 (0, 0)
                 pSize
                 b
-            otherwise ->
+            Nothing ->
               Player
                 (xpos - increment - a * tLeft + a * tRight, ypos + gravity)
                 (tLeft, guardSpeedDown tRight)
@@ -602,7 +599,7 @@ move boxes floors (_, True, True) (Player (xpos, ypos) (tLeft, tRight) pSize b) 
                   (0, 0)
                   pSize
                   b
-              otherwise ->
+              Nothing ->
                 Player
                   ( xpos + increment + a * tRight - a * tLeft,
                     box_y bU - boxSize / 2 - pSize / 2
@@ -610,7 +607,7 @@ move boxes floors (_, True, True) (Player (xpos, ypos) (tLeft, tRight) pSize b) 
                   (guardSpeedDown tLeft, guardSpeedUp tRight)
                   pSize
                   b
-            otherwise -> case boxR of
+            Nothing -> case boxR of
               (Just bR) ->
                 Player
                   ( box_x bR
@@ -618,14 +615,14 @@ move boxes floors (_, True, True) (Player (xpos, ypos) (tLeft, tRight) pSize b) 
                       / 2
                       - box_width bR
                       / 2,
-                    ypos + 100
+                    ypos + jumpHeight
                   )
                   (0, 0)
                   pSize
                   b
-              otherwise ->
+              Nothing ->
                 Player
-                  (xpos + increment + a * tRight - a * tLeft, ypos + 100)
+                  (xpos + increment + a * tRight - a * tLeft, ypos + jumpHeight)
                   (guardSpeedDown tLeft, guardSpeedUp tRight)
                   pSize
                   b
@@ -642,14 +639,14 @@ move boxes floors (_, True, True) (Player (xpos, ypos) (tLeft, tRight) pSize b) 
                 (0, 0)
                 pSize
                 b
-            otherwise ->
+            Nothing ->
               Player
                 (xpos + increment + a * tRight - a * tLeft, ypos + gravity)
                 (guardSpeedDown tLeft, tRight)
                 pSize
                 b
       )
-move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSize b) increment =
+move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSize b) _ =
   let boxU = limitUp boxes xpos ypos pSize
       boxR = limitRight boxes floors xpos ypos pSize (- a * tLeft + a * tRight)
       boxL = limitLeft boxes floors xpos ypos pSize (- a * tLeft + a * tRight)
@@ -670,7 +667,7 @@ move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSiz
                   (guardSpeedDown tLeft, guardSpeedDown tRight)
                   pSize
                   b
-              otherwise -> case boxL of
+              Nothing -> case boxL of
                 (Just bL) ->
                   Player
                     ( box_x bL
@@ -683,7 +680,7 @@ move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSiz
                     (guardSpeedDown tLeft, guardSpeedDown tRight)
                     pSize
                     b
-                otherwise ->
+                Nothing ->
                   Player
                     ( xpos - a * tLeft + a * tRight,
                       box_y bU - boxSize / 2 - pSize / 2
@@ -691,7 +688,7 @@ move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSiz
                     (guardSpeedDown tLeft, guardSpeedDown tRight)
                     pSize
                     b
-            otherwise -> case boxR of
+            Nothing -> case boxR of
               (Just bR) ->
                 Player
                   ( box_x bR
@@ -699,12 +696,12 @@ move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSiz
                       / 2
                       - box_width bR
                       / 2,
-                    ypos + 100
+                    ypos + jumpHeight
                   )
                   (guardSpeedDown tLeft, guardSpeedDown tRight)
                   pSize
                   b
-              otherwise -> case boxL of
+              Nothing -> case boxL of
                 (Just bL) ->
                   Player
                     ( box_x bL
@@ -712,14 +709,14 @@ move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSiz
                         / 2
                         + box_width bL
                         / 2,
-                      ypos + 100
+                      ypos + jumpHeight
                     )
                     (guardSpeedDown tLeft, guardSpeedDown tRight)
                     pSize
                     b
-                otherwise ->
+                Nothing ->
                   Player
-                    (xpos - a * tLeft + a * tRight, ypos + 100)
+                    (xpos - a * tLeft + a * tRight, ypos + jumpHeight)
                     (guardSpeedDown tLeft, guardSpeedDown tRight)
                     pSize
                     b
@@ -732,7 +729,7 @@ move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSiz
                 (guardSpeedDown tLeft, guardSpeedDown tRight)
                 pSize
                 b
-            otherwise -> case boxLg of
+            Nothing -> case boxLg of
               (Just bLg) ->
                 Player
                   ( box_x bLg
@@ -745,7 +742,7 @@ move boxes floors (False, False, True) (Player (xpos, ypos) (tLeft, tRight) pSiz
                   (guardSpeedDown tLeft, guardSpeedDown tRight)
                   pSize
                   b
-              otherwise ->
+              Nothing ->
                 Player
                   (xpos - a * tLeft + a * tRight, ypos + gravity)
                   (guardSpeedDown tLeft, guardSpeedDown tRight)
@@ -775,7 +772,7 @@ move boxes floors (False, False, False) (Player (xpos, ypos) (tLeft, tRight) pSi
                 (guardSpeedDown tLeft, guardSpeedDown tRight)
                 pSize
                 b
-            otherwise -> case boxL of
+            Nothing -> case boxL of
               (Just bL) ->
                 Player
                   ( box_x bL
@@ -788,7 +785,7 @@ move boxes floors (False, False, False) (Player (xpos, ypos) (tLeft, tRight) pSi
                   (guardSpeedDown tLeft, guardSpeedDown tRight)
                   pSize
                   b
-              otherwise ->
+              Nothing ->
                 Player
                   (xpos - a * tLeft + a * tRight, ypos)
                   (guardSpeedDown tLeft, guardSpeedDown tRight)
@@ -807,7 +804,7 @@ move boxes floors (False, False, False) (Player (xpos, ypos) (tLeft, tRight) pSi
                 (guardSpeedDown tLeft, guardSpeedDown tRight)
                 pSize
                 b
-            otherwise -> case boxLg of
+            Nothing -> case boxLg of
               (Just bLg) ->
                 Player
                   ( box_x bLg
@@ -820,7 +817,7 @@ move boxes floors (False, False, False) (Player (xpos, ypos) (tLeft, tRight) pSi
                   (guardSpeedDown tLeft, guardSpeedDown tRight)
                   pSize
                   b
-              otherwise ->
+              Nothing ->
                 Player
                   (xpos - a * tLeft + a * tRight, ypos + gravity)
                   (guardSpeedDown tLeft, guardSpeedDown tRight)

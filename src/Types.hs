@@ -27,6 +27,9 @@ worldHeight = 500
 gravity :: Float
 gravity = -5
 
+jumpHeight :: Float
+jumpHeight = 100
+
 floorWidth :: Float
 floorWidth = 150
 
@@ -54,6 +57,8 @@ monsterSpeed = 2.5
 mushroomSize :: Float
 mushroomSize = 20
 
+data MonsterStatus = Move | Dead | Hit 
+                     deriving Eq
 
 data WinGame = WinGame | Other
 
@@ -126,7 +131,7 @@ data Player = Player
 data Ending = Win | Lose
               deriving (Show, Eq)
 
-data GameStatus = Start | InGame | End
+data GameStatus = Start | InGame
                   deriving Show
 
 newtype LevelStatus = Level Int
